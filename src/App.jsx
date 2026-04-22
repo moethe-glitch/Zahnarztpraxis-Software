@@ -1199,7 +1199,7 @@ function FaelligkeitModal({aufträge,onSelect,onClose,dark}) {
 // ─── New Order Intake (3-Step Wizard) ─────────────────────────
 function IntakeModal({patienten,zahnärzte,onSave,onClose,prefill,dark}) {
   const [step,setStep] = useState(prefill?"details":"choose");
-  const [form,setForm] = useState({patient:prefill?.patient||"",zahnarzt:prefill?.zahnarzt||zahnärzte[0]?.name||"",arbeitstyp:ARBEITSTYPEN[0],zahn:"",labor:"Eigenlabor",laborName:"",faelligkeit:addDays(14),prioritaet:"Normal",anweisungen:""});
+  const [form,setForm] = useState({patient:prefill?.patient||"",zahnarzt:prefill?.zahnarzt||zahnärzte[0]?.name||"",arbeitstyp:ARBEITSTYPEN[0],zahn:"",labor:"Eigenlabor",laborName:"",faelligkeit:addDays(14),prioritaet:"Normal",anweisungen:"",geburtsdatum:"",farbe:""});
   const [saving,setSaving] = useState(false); const [saved,setSaved] = useState(null);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const bg=dark?T.dcard:"#fff"; const tc=dark?T.dtxt:T.ch; const brd=dark?T.dbrd:T.sand;
@@ -1330,6 +1330,16 @@ function IntakeModal({patienten,zahnärzte,onSave,onClose,prefill,dark}) {
               <div>
                 <SectionLabel>Fälligkeit *</SectionLabel>
                 <Input type="date" value={form.faelligkeit} onChange={e=>set("faelligkeit",e.target.value)} dark={dark}/>
+              </div>
+            </div>
+            <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
+              <div>
+                <SectionLabel>Geburtsdatum</SectionLabel>
+                <Input type="date" value={form.geburtsdatum} onChange={e=>set("geburtsdatum",e.target.value)} dark={dark}/>
+              </div>
+              <div>
+                <SectionLabel>Farbe / Shade</SectionLabel>
+                <Input value={form.farbe} onChange={e=>set("farbe",e.target.value)} placeholder="z. B. A2, BL2" dark={dark}/>
               </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
@@ -1474,6 +1484,7 @@ function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplic
   const a=auftrag; const [showChat,setShowChat]=useState(false); const [showAnw,setShowAnw]=useState(false);
   const [showFoto,setShowFoto]=useState(false); const [tips,setTips]=useState([]); const [loadTips,setLoadTips]=useState(false);
   const [anw,setAnw]=useState(a.anweisungen||""); const [anwSaving,setAnwSaving]=useState(false);
+  const [dpLbIdx,setDpLbIdx]=useState(null); const [dpLbZoom,setDpLbZoom]=useState(1);
   const sm=getSM(a.status); const late=isLate(a); const verlauf=getV(a); const fotos=getFotos(a);
   const ug=(unread&&unread[a.id])||0;
   const bg=dark?T.dbg:T.ivory; const card=dark?T.dcard:"#fff"; const tc=dark?T.dtxt:T.ch; const brd=dark?T.dbrd:T.sand;
@@ -1534,7 +1545,7 @@ function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplic
           {/* Info grid */}
           <Card dark={dark} style={{marginBottom:12}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              {[["Eingang",fmtDate(a.eingang)],["Fälligkeit",fmtDate(a.faelligkeit)],["Labor",a.labor+(a.laborName?` (${a.laborName})`:"")||"—"],["Zahnarzt",a.zahnarzt||"—"]].map(([l,v])=>(
+              {[["Eingang",fmtDate(a.eingang)],["Fälligkeit",fmtDate(a.faelligkeit)],["Labor",a.labor+(a.laborName?` (${a.laborName})`:"")||"—"],["Zahnarzt",a.zahnarzt||"—"],...(a.geburtsdatum?[["Geburtsdatum",fmtDate(a.geburtsdatum)]]:[]),...(a.farbe?[["Farbe",a.farbe]]:[]) ].map(([l,v])=>(
                 <div key={l}>
                   <div style={{fontSize:9,color:T.gray,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:3}}>{l}</div>
                   <div style={{fontSize:13,fontWeight:600,color:tc}}>{v}</div>
@@ -1551,9 +1562,25 @@ function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplic
           {fotos.length>0&&<Card dark={dark} style={{marginBottom:12}}>
             <SectionLabel>Fotos ({fotos.length})</SectionLabel>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-              {fotos.map((url,i)=><img key={i} src={url} alt="" style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:10,border:`1px solid ${brd}`}} loading="lazy"/>)}
+              {fotos.map((url,i)=><img key={i} src={url} alt="" onClick={()=>{setDpLbIdx(i);setDpLbZoom(1);}} style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:10,border:`1px solid ${brd}`,cursor:"zoom-in"}} loading="lazy"/>)}
             </div>
           </Card>}
+          {dpLbIdx!==null&&(
+            <div onClick={()=>{setDpLbIdx(null);setDpLbZoom(1);}} style={{position:"fixed",inset:0,zIndex:9000,background:"rgba(0,0,0,0.92)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+              <div style={{position:"absolute",top:16,right:20,display:"flex",gap:10,zIndex:9001}}>
+                <button onClick={e=>{e.stopPropagation();setDpLbZoom(z=>Math.min(z+0.25,4));}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:20,cursor:"pointer"}}>＋</button>
+                <button onClick={e=>{e.stopPropagation();setDpLbZoom(z=>Math.max(z-0.25,1));}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:20,cursor:"pointer"}}>－</button>
+                <button onClick={e=>{e.stopPropagation();setDpLbZoom(1);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:16,cursor:"pointer"}}>1:1</button>
+                <button onClick={e=>{e.stopPropagation();setDpLbIdx(i=>i>0?i-1:fotos.length-1);setDpLbZoom(1);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:20,cursor:"pointer"}}>‹</button>
+                <button onClick={e=>{e.stopPropagation();setDpLbIdx(i=>i<fotos.length-1?i+1:0);setDpLbZoom(1);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:20,cursor:"pointer"}}>›</button>
+                <button onClick={e=>{e.stopPropagation();setDpLbIdx(null);setDpLbZoom(1);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:18,cursor:"pointer"}}>✕</button>
+              </div>
+              <div onClick={e=>e.stopPropagation()} style={{overflow:"auto",maxWidth:"90vw",maxHeight:"80vh",display:"flex",alignItems:"center",justifyContent:"center"}}>
+                <img src={fotos[dpLbIdx]} alt="" style={{transform:`scale(${dpLbZoom})`,transformOrigin:"center",transition:"transform .15s",maxWidth:"90vw",maxHeight:"80vh",objectFit:"contain",borderRadius:8}} onClick={e=>e.stopPropagation()}/>
+              </div>
+              <div style={{color:"rgba(255,255,255,0.5)",fontSize:12,marginTop:14}}>{dpLbIdx+1} / {fotos.length} · Zoom {Math.round(dpLbZoom*100)}%</div>
+            </div>
+          )}
           {/* Timeline */}
           {verlauf.length>0&&<Card dark={dark}>
             <SectionLabel>Verlauf</SectionLabel>
@@ -1603,6 +1630,7 @@ function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplic
 // ─── Foto Upload Modal ────────────────────────────────────────
 function FotoUploadModal({aid,fotos,onSave,onClose,dark}) {
   const [uploading,setUploading]=useState(false); const [err,setErr]=useState(""); const [pct,setPct]=useState(0);
+  const [fuLbIdx,setFuLbIdx]=useState(null); const [fuLbZoom,setFuLbZoom]=useState(1);
   const brd=dark?T.dbrd:T.sand; const bg=dark?T.dbg:T.ivory;
   const upload=async file=>{
     if(!file) return; setUploading(true); setErr(""); setPct(0);
@@ -1626,8 +1654,24 @@ function FotoUploadModal({aid,fotos,onSave,onClose,dark}) {
           <span>⚠ {err}</span><button onClick={()=>setErr("")} style={{background:"transparent",border:"none",color:T.err,cursor:"pointer"}}>✕</button>
         </div>}
         {fotos.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14}}>
-          {fotos.map((url,i)=><img key={i} src={url} alt="" style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:9,border:`1px solid ${brd}`}} loading="lazy"/>)}
+          {fotos.map((url,i)=><img key={i} src={url} alt="" onClick={()=>{setFuLbIdx(i);setFuLbZoom(1);}} style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:9,border:`1px solid ${brd}`,cursor:"zoom-in"}} loading="lazy"/>)}
         </div>}
+        {fuLbIdx!==null&&(
+          <div onClick={()=>{setFuLbIdx(null);setFuLbZoom(1);}} style={{position:"fixed",inset:0,zIndex:9000,background:"rgba(0,0,0,0.92)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
+            <div style={{position:"absolute",top:16,right:20,display:"flex",gap:10,zIndex:9001}}>
+              <button onClick={e=>{e.stopPropagation();setFuLbZoom(z=>Math.min(z+0.25,4));}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:20,cursor:"pointer"}}>＋</button>
+              <button onClick={e=>{e.stopPropagation();setFuLbZoom(z=>Math.max(z-0.25,1));}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:20,cursor:"pointer"}}>－</button>
+              <button onClick={e=>{e.stopPropagation();setFuLbZoom(1);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:16,cursor:"pointer"}}>1:1</button>
+              <button onClick={e=>{e.stopPropagation();setFuLbIdx(i=>i>0?i-1:fotos.length-1);setFuLbZoom(1);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:20,cursor:"pointer"}}>‹</button>
+              <button onClick={e=>{e.stopPropagation();setFuLbIdx(i=>i<fotos.length-1?i+1:0);setFuLbZoom(1);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:20,cursor:"pointer"}}>›</button>
+              <button onClick={e=>{e.stopPropagation();setFuLbIdx(null);setFuLbZoom(1);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:18,cursor:"pointer"}}>✕</button>
+            </div>
+            <div onClick={e=>e.stopPropagation()} style={{overflow:"auto",maxWidth:"90vw",maxHeight:"80vh",display:"flex",alignItems:"center",justifyContent:"center"}}>
+              <img src={fotos[fuLbIdx]} alt="" style={{transform:`scale(${fuLbZoom})`,transformOrigin:"center",transition:"transform .15s",maxWidth:"90vw",maxHeight:"80vh",objectFit:"contain",borderRadius:8}} onClick={e=>e.stopPropagation()}/>
+            </div>
+            <div style={{color:"rgba(255,255,255,0.5)",fontSize:12,marginTop:14}}>{fuLbIdx+1} / {fotos.length} · Zoom {Math.round(fuLbZoom*100)}%</div>
+          </div>
+        )}
         {fotos.length===0&&!uploading&&<EmptyState icon="📷" title="Noch keine Fotos" dark={dark}/>}
       </div>
       <div style={{padding:"12px 16px",display:"flex",gap:10,borderTop:`1px solid ${brd}`}}>
