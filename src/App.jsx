@@ -205,7 +205,7 @@ async function getAiTips(arbeitstyp, zahn) {
 // ═══════════════════════════════════════════════════════════════
 const ss       = v => v == null ? "" : String(v);
 const today    = () => new Date().toISOString().split("T")[0];
-const genId    = () => "A" + Date.now().toString(36).toUpperCase().slice(-6);
+const genId    = () => { if (typeof crypto !== "undefined" && crypto.randomUUID) { return crypto.randomUUID(); } return "xxxxxxxx-xxxx-4xxx-yxxx-xxxxxxxxxxxx".replace(/[xy]/g, function(c) { const r = Math.random() * 16 | 0; const v = c === "x" ? r : (r & 0x3 | 0x8); return v.toString(16); }); };
 const addDays  = n => { const d=new Date(); d.setDate(d.getDate()+n); return d.toISOString().split("T")[0]; };
 const fmtDate  = d => { if(!d) return "–"; try{return new Date(d+"T12:00:00").toLocaleDateString("de-DE");}catch{return d;} };
 const fmtTime  = d => { if(!d) return ""; try{return new Date(d).toLocaleTimeString("de-DE",{hour:"2-digit",minute:"2-digit"});}catch{return "";} };
