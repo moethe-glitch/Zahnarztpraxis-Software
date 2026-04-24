@@ -1585,7 +1585,7 @@ function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplic
   const a=auftrag; const [showChat,setShowChat]=useState(false); const [showAnw,setShowAnw]=useState(false);
   const [showFoto,setShowFoto]=useState(false); const [tips,setTips]=useState([]); const [loadTips,setLoadTips]=useState(false);
   const [anw,setAnw]=useState(a.anweisungen||""); const [anwSaving,setAnwSaving]=useState(false);
-  const [dpLbIdx,setDpLbIdx]=useState(null); const [dpLbZoom,setDpLbZoom]=useState(1);
+  const [dpLbIdx,setDpLbIdx]=useState(null); const [dpLbZoom,setDpLbZoom]=useState(1); const [dpLbSrc,setDpLbSrc]=useState(null);
   const sm=getSM(a.status); const late=isLate(a); const verlauf=getV(a); const fotos=getFotos(a);
   const ug=(unread&&unread[a.id])||0;
   const bg=dark?T.dbg:T.ivory; const card=dark?T.dcard:"#fff"; const tc=dark?T.dtxt:T.ch; const brd=dark?T.dbrd:T.sand;
@@ -1667,7 +1667,7 @@ function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplic
                 <SignedImg key={i} path={path}
                   style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:10,border:`1px solid ${brd}`,cursor:"zoom-in"}}
                   fallbackStyle={{width:"100%",aspectRatio:"1",background:brd,borderRadius:10}}
-                  onClick={()=>{setDpLbIdx(i);setDpLbZoom(1);}}
+                  onClick={()=>{setDpLbIdx(i);setDpLbZoom(1);setDpLbSrc(null);getPhotoUrl(fotos[i]).then(u=>setDpLbSrc(u));}}
                 />
               ))}
             </div>
@@ -1678,12 +1678,12 @@ function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplic
                 <button onClick={e=>{e.stopPropagation();setDpLbZoom(z=>Math.min(z+0.25,4));}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:20,cursor:"pointer"}}>＋</button>
                 <button onClick={e=>{e.stopPropagation();setDpLbZoom(z=>Math.max(z-0.25,1));}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:20,cursor:"pointer"}}>－</button>
                 <button onClick={e=>{e.stopPropagation();setDpLbZoom(1);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:16,cursor:"pointer"}}>1:1</button>
-                <button onClick={e=>{e.stopPropagation();setDpLbIdx(i=>i>0?i-1:fotos.length-1);setDpLbZoom(1);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:20,cursor:"pointer"}}>‹</button>
-                <button onClick={e=>{e.stopPropagation();setDpLbIdx(i=>i<fotos.length-1?i+1:0);setDpLbZoom(1);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:20,cursor:"pointer"}}>›</button>
+                <button onClick={e=>{e.stopPropagation();setDpLbIdx(i=>{const n=i>0?i-1:fotos.length-1;setDpLbSrc(null);getPhotoUrl(fotos[n]).then(u=>setDpLbSrc(u));return n;});setDpLbZoom(1);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:20,cursor:"pointer"}}>‹</button>
+                <button onClick={e=>{e.stopPropagation();setDpLbIdx(i=>{const n=i<fotos.length-1?i+1:0;setDpLbSrc(null);getPhotoUrl(fotos[n]).then(u=>setDpLbSrc(u));return n;});setDpLbZoom(1);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:20,cursor:"pointer"}}>›</button>
                 <button onClick={e=>{e.stopPropagation();setDpLbIdx(null);setDpLbZoom(1);}} style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:8,width:38,height:38,fontSize:18,cursor:"pointer"}}>✕</button>
               </div>
               <div onClick={e=>e.stopPropagation()} style={{overflow:"auto",maxWidth:"90vw",maxHeight:"80vh",display:"flex",alignItems:"center",justifyContent:"center"}}>
-                <img src={fotos[dpLbIdx]} alt="" style={{transform:`scale(${dpLbZoom})`,transformOrigin:"center",transition:"transform .15s",maxWidth:"90vw",maxHeight:"80vh",objectFit:"contain",borderRadius:8}} onClick={e=>e.stopPropagation()}/>
+                {dpLbSrc ? <img src={dpLbSrc} alt="" style={{transform:`scale(${dpLbZoom})`,transformOrigin:"center",transition:"transform .15s",maxWidth:"90vw",maxHeight:"80vh",objectFit:"contain",borderRadius:8}} onClick={e=>e.stopPropagation()}/> : <div style={{color:"rgba(255,255,255,0.5)",fontSize:14}}>⏳ Lädt…</div>}
               </div>
               <div style={{color:"rgba(255,255,255,0.5)",fontSize:12,marginTop:14}}>{dpLbIdx+1} / {fotos.length} · Zoom {Math.round(dpLbZoom*100)}%</div>
             </div>
