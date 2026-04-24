@@ -100,6 +100,18 @@ const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJ
 const isConf  = () => SB_URL !== "IHRE_SUPABASE_URL";
 
 // ── Signed URL helper ──────────────────────────────────────────
+function SignedImg({ path, style, onClick, fallbackStyle }) {
+  const [src, setSrc] = React.useState(null);
+  React.useEffect(() => {
+    let cancelled = false;
+    getPhotoUrl(path).then(u => { if (!cancelled) setSrc(u); });
+    return () => { cancelled = true; };
+  }, [path]);
+  return src
+    ? <img src={src} alt="" style={style} onClick={onClick} />
+    : <div style={fallbackStyle || style} />;
+}
+
 const getPhotoUrl = async (pathOrUrl, bucket = "fotos", expires = 3600) => {
   if (pathOrUrl && (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://"))) return pathOrUrl;
   if (!pathOrUrl) return null;
@@ -1645,11 +1657,13 @@ function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplic
           {fotos.length>0&&<Card dark={dark} style={{marginBottom:12}}>
             <SectionLabel>Fotos ({fotos.length})</SectionLabel>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-              {fotos.map((path,i)=>{
-                const [s,ss_]=useState(null);
-                useEffect(()=>{let c=false;getPhotoUrl(path).then(u=>{if(!c)ss_(u);});return()=>{c=true;};},[ path]);
-                return s?<img key={i} src={s} alt="" onClick={()=>{setDpLbIdx(i);setDpLbZoom(1);}} style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:10,border:`1px solid ${brd}`,cursor:"zoom-in"}} />:<div key={i} style={{width:"100%",aspectRatio:"1",background:brd,borderRadius:10}} />;
-              })}
+              {fotos.map((path,i)=>(
+                <SignedImg key={i} path={path}
+                  style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:10,border:`1px solid ${brd}`,cursor:"zoom-in"}}
+                  fallbackStyle={{width:"100%",aspectRatio:"1",background:brd,borderRadius:10}}
+                  onClick={()=>{setDpLbIdx(i);setDpLbZoom(1);}}
+                />
+              ))}
             </div>
           </Card>}
           {dpLbIdx!==null&&(
@@ -1741,11 +1755,13 @@ function FotoUploadModal({aid,fotos,onSave,onClose,dark}) {
           <span>⚠ {err}</span><button onClick={()=>setErr("")} style={{background:"transparent",border:"none",color:T.err,cursor:"pointer"}}>✕</button>
         </div>}
         {fotos.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14}}>
-          {fotos.map((path,i)=>{
-            const [s2,ss2]=useState(null);
-            useEffect(()=>{let c=false;getPhotoUrl(path).then(u=>{if(!c)ss2(u);});return()=>{c=true;};},[ path]);
-            return s2?<img key={i} src={s2} alt="" onClick={()=>{setFuLbIdx(i);setFuLbZoom(1);}} style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:9,border:`1px solid ${brd}`,cursor:"zoom-in"}} />:<div key={i} style={{width:"100%",aspectRatio:"1",background:brd,borderRadius:9}} />;
-          })}
+          {fotos.map((path,i)=>(
+            <SignedImg key={i} path={path}
+              style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:9,border:`1px solid ${brd}`,cursor:"zoom-in"}}
+              fallbackStyle={{width:"100%",aspectRatio:"1",background:brd,borderRadius:9}}
+              onClick={()=>{setFuLbIdx(i);setFuLbZoom(1);}}
+            />
+          ))}
         </div>}
         {fuLbIdx!==null&&(
           <div onClick={()=>{setFuLbIdx(null);setFuLbZoom(1);}} style={{position:"fixed",inset:0,zIndex:9000,background:"rgba(0,0,0,0.92)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
