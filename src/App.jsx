@@ -99,6 +99,25 @@ const SB_URL = "https://rfoiokhambyjewpauytn.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmb2lva2hhbWJ5amV3cGF1eXRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMzgwMTEsImV4cCI6MjA5MTgxNDAxMX0.Lokl1HrFSx2HSJJFQjd5oM31NfeB3cbyso3nDvdB8bc";
 const isConf  = () => SB_URL !== "IHRE_SUPABASE_URL";
 
+// ── Signed URL helper ──────────────────────────────────────────
+const getPhotoUrl = async (pathOrUrl, bucket = "fotos", expires = 3600) => {
+  if (pathOrUrl && (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://"))) return pathOrUrl;
+  if (!pathOrUrl) return null;
+  try {
+    const cleanPath = pathOrUrl.replace(`${bucket}/`, "");
+    const session = (() => { try { return JSON.parse(localStorage.getItem("sb_session") || "null"); } catch { return null; } })();
+    const token = session?.access_token || SB_KEY;
+    const res = await fetch(`${SB_URL}/storage/v1/object/sign/${bucket}/${cleanPath}`, {
+      method: "POST",
+      headers: { "apikey": SB_KEY, "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ expiresIn: expires }),
+    });
+    if (!res.ok) return pathOrUrl;
+    const data = await res.json();
+    return `${SB_URL}/storage/v1${data.signedURL}`;
+  } catch { return pathOrUrl; }
+};
+
 // ── Supabase Auth helpers ──────────────────────────────────────
 const sbAuth = {
   signIn: async (email, password) => {
@@ -311,9 +330,8 @@ async function uploadFoto(aid, file, onProgress) {
       if(onProgress) onProgress({attempt,total:3,status:"uploading"});
       const res=await fetch(url,{method:"POST",headers:{"apikey":SB_KEY,"Authorization":`Bearer ${SB_KEY}`,"Content-Type":compressed.type||"image/jpeg"},body:compressed});
       if(!res.ok) throw new Error("HTTP "+res.status);
-      const publicUrl=`${SB_URL}/storage/v1/object/public/fotos/${path}`;
       if(onProgress) onProgress({attempt,total:3,status:"done"});
-      return publicUrl;
+      return `fotos/${path}`; // store path, not public URL
     } catch(err) {
       if(attempt===3){if(onProgress)onProgress({attempt,total:3,status:"failed",error:err.message});throw err;}
       await new Promise(r=>setTimeout(r,1000*Math.pow(2,attempt-1)));
@@ -1627,7 +1645,11 @@ function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplic
           {fotos.length>0&&<Card dark={dark} style={{marginBottom:12}}>
             <SectionLabel>Fotos ({fotos.length})</SectionLabel>
             <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:8}}>
-              {fotos.map((url,i)=><img key={i} src={url} alt="" onClick={()=>{setDpLbIdx(i);setDpLbZoom(1);}} style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:10,border:`1px solid ${brd}`,cursor:"zoom-in"}} loading="lazy"/>)}
+              {fotos.map((path,i)=>{
+                const [s,ss_]=useState(null);
+                useEffect(()=>{let c=false;getPhotoUrl(path).then(u=>{if(!c)ss_(u);});return()=>{c=true;};},[ path]);
+                return s?<img key={i} src={s} alt="" onClick={()=>{setDpLbIdx(i);setDpLbZoom(1);}} style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:10,border:`1px solid ${brd}`,cursor:"zoom-in"}} />:<div key={i} style={{width:"100%",aspectRatio:"1",background:brd,borderRadius:10}} />;
+              })}
             </div>
           </Card>}
           {dpLbIdx!==null&&(
@@ -1719,7 +1741,11 @@ function FotoUploadModal({aid,fotos,onSave,onClose,dark}) {
           <span>⚠ {err}</span><button onClick={()=>setErr("")} style={{background:"transparent",border:"none",color:T.err,cursor:"pointer"}}>✕</button>
         </div>}
         {fotos.length>0&&<div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:14}}>
-          {fotos.map((url,i)=><img key={i} src={url} alt="" onClick={()=>{setFuLbIdx(i);setFuLbZoom(1);}} style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:9,border:`1px solid ${brd}`,cursor:"zoom-in"}} loading="lazy"/>)}
+          {fotos.map((path,i)=>{
+            const [s2,ss2]=useState(null);
+            useEffect(()=>{let c=false;getPhotoUrl(path).then(u=>{if(!c)ss2(u);});return()=>{c=true;};},[ path]);
+            return s2?<img key={i} src={s2} alt="" onClick={()=>{setFuLbIdx(i);setFuLbZoom(1);}} style={{width:"100%",aspectRatio:"1",objectFit:"cover",borderRadius:9,border:`1px solid ${brd}`,cursor:"zoom-in"}} />:<div key={i} style={{width:"100%",aspectRatio:"1",background:brd,borderRadius:9}} />;
+          })}
         </div>}
         {fuLbIdx!==null&&(
           <div onClick={()=>{setFuLbIdx(null);setFuLbZoom(1);}} style={{position:"fixed",inset:0,zIndex:9000,background:"rgba(0,0,0,0.92)",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center"}}>
