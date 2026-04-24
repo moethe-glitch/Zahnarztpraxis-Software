@@ -1300,7 +1300,7 @@ function FaelligkeitModal({aufträge,onSelect,onClose,dark}) {
 // ─── New Order Intake (3-Step Wizard) ─────────────────────────
 function IntakeModal({patienten,zahnärzte,onSave,onClose,prefill,dark}) {
   const [step,setStep] = useState(prefill?"details":"choose");
-  const [form,setForm] = useState({patient:prefill?.patient||"",zahnarzt:prefill?.zahnarzt||zahnärzte[0]?.name||"",arbeitstyp:ARBEITSTYPEN[0],zahn:"",labor:"Eigenlabor",laborName:"",faelligkeit:addDays(14),prioritaet:"Normal",anweisungen:"",geburtsdatum:"",farbe:""});
+  const [form,setForm] = useState({patient:prefill?.patient||"",zahnarzt:prefill?.zahnarzt||zahnärzte[0]?.name||"",arbeitstyp:ARBEITSTYPEN[0],zahn:"",labor:"Eigenlabor",laborName:"",faelligkeit:addDays(14),prioritaet:"Normal",anweisungen:"",farbe:""});
   const [saving,setSaving] = useState(false); const [saved,setSaved] = useState(null);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const bg=dark?T.dcard:"#fff"; const tc=dark?T.dtxt:T.ch; const brd=dark?T.dbrd:T.sand;
@@ -1435,10 +1435,6 @@ function IntakeModal({patienten,zahnärzte,onSave,onClose,prefill,dark}) {
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
               <div>
-                <SectionLabel>Geburtsdatum</SectionLabel>
-                <Input type="date" value={form.geburtsdatum} onChange={e=>set("geburtsdatum",e.target.value)} dark={dark}/>
-              </div>
-              <div>
                 <SectionLabel>Farbe / Shade</SectionLabel>
                 <Input value={form.farbe} onChange={e=>set("farbe",e.target.value)} placeholder="z. B. A2, BL2" dark={dark}/>
               </div>
@@ -1465,7 +1461,7 @@ function IntakeModal({patienten,zahnärzte,onSave,onClose,prefill,dark}) {
               <SectionLabel>Anweisungen</SectionLabel>
               <Textarea value={form.anweisungen} onChange={e=>set("anweisungen",e.target.value)} placeholder="Anweisungen für den Techniker…" rows={3} dark={dark}/>
             </div>
-            <Btn variant="primary" loading={saving} disabled={!form.arbeitstyp||!form.faelligkeit} onClick={handleSave} style={{width:"100%",justifyContent:"center",padding:"14px"}}>
+            <Btn variant="primary" loading={saving} disabled={!form.arbeitstyp||!form.faelligkeit} title={!form.faelligkeit?"Fälligkeitsdatum ist Pflicht":""} onClick={handleSave} style={{width:"100%",justifyContent:"center",padding:"14px"}}>
               Auftrag speichern
             </Btn>
           </>
@@ -1646,7 +1642,7 @@ function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplic
           {/* Info grid */}
           <Card dark={dark} style={{marginBottom:12}}>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}>
-              {[["Eingang",fmtDate(a.eingang)],["Fälligkeit",fmtDate(a.faelligkeit)],["Labor",a.labor+(a.laborName?` (${a.laborName})`:"")||"—"],["Zahnarzt",a.zahnarzt||"—"],...(a.geburtsdatum?[["Geburtsdatum",fmtDate(a.geburtsdatum)]]:[]),...(a.farbe?[["Farbe",a.farbe]]:[]) ].map(([l,v])=>(
+              {[["Eingang",fmtDate(a.eingang)],["Fälligkeit",fmtDate(a.faelligkeit)],["Labor",a.labor+(a.laborName?` (${a.laborName})`:"")||"—"],["Zahnarzt",a.zahnarzt||"—"],...(a.farbe?[["Farbe",a.farbe]]:[]) ].map(([l,v])=>(
                 <div key={l}>
                   <div style={{fontSize:9,color:T.gray,fontWeight:700,letterSpacing:"1.5px",textTransform:"uppercase",marginBottom:3}}>{l}</div>
                   <div style={{fontSize:13,fontWeight:600,color:tc}}>{v}</div>
