@@ -126,7 +126,7 @@ const getPhotoUrl = async (pathOrUrl, bucket = "fotos", expires = 3600) => {
     });
     if (!res.ok) return pathOrUrl;
     const data = await res.json();
-    return `${SB_URL}/storage/v1${data.signedURL}`;
+    return `${SB_URL}${data.signedURL}`;
   } catch { return pathOrUrl; }
 };
 
