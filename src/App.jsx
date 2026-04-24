@@ -99,6 +99,32 @@ const SB_URL = "https://rfoiokhambyjewpauytn.supabase.co";
 const SB_KEY = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6InJmb2lva2hhbWJ5amV3cGF1eXRuIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NzYyMzgwMTEsImV4cCI6MjA5MTgxNDAxMX0.Lokl1HrFSx2HSJJFQjd5oM31NfeB3cbyso3nDvdB8bc";
 const isConf  = () => SB_URL !== "IHRE_SUPABASE_URL";
 
+// ── Supabase Auth helpers ──────────────────────────────────────
+const sbAuth = {
+  signIn: async (email, password) => {
+    const res = await fetch(`${SB_URL}/auth/v1/token?grant_type=password`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, "Content-Type": "application/json" },
+      body: JSON.stringify({ email, password }),
+    });
+    const data = await res.json();
+    if (!res.ok) throw new Error(data.error_description || data.msg || "Login fehlgeschlagen");
+    return data;
+  },
+  signOut: async (accessToken) => {
+    await fetch(`${SB_URL}/auth/v1/logout`, {
+      method: "POST",
+      headers: { apikey: SB_KEY, Authorization: `Bearer ${accessToken}` },
+    }).catch(() => {});
+  },
+  getSession: () => {
+    try { return JSON.parse(localStorage.getItem("sb_session") || "null"); } catch { return null; }
+  },
+  setSession: (s) => {
+    try { localStorage.setItem("sb_session", s ? JSON.stringify(s) : "null"); } catch {}
+  },
+};
+
 async function sbReq(path, opts = {}) {
   const res = await fetch(`${SB_URL}/rest/v1/${path}`, {
     headers: {
@@ -677,6 +703,45 @@ function PinPad({onSubmit,error,dark,length=4}) {
 // ═══════════════════════════════════════════════════════════════
 // LOGIN SCREEN
 // ═══════════════════════════════════════════════════════════════
+function AuthLoginScreen({onAuthSuccess}) {
+  const [email,    setEmail]    = useState("");
+  const [password, setPassword] = useState("");
+  const [loading,  setLoading]  = useState(false);
+  const [err,      setErr]      = useState(null);
+
+  const handleLogin = async () => {
+    if (!email.trim() || !password.trim()) { setErr("E-Mail und Passwort eingeben"); return; }
+    setLoading(true); setErr(null);
+    try {
+      const session = await sbAuth.signIn(email.trim(), password.trim());
+      sbAuth.setSession(session);
+      onAuthSuccess(session);
+    } catch(e) { setErr(e.message || "Login fehlgeschlagen"); }
+    setLoading(false);
+  };
+
+  return (
+    <div style={{minHeight:"100vh",background:`linear-gradient(160deg,${T.brandDk} 0%,#1a0f0f 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"48px 28px"}}>
+      <style>{CSS}</style>
+      <div style={{marginBottom:32}}><Logo/></div>
+      <div style={{color:T.sage,fontWeight:700,fontSize:22,fontFamily:"Georgia,serif",marginBottom:6,textAlign:"center"}}>Praxis-Software</div>
+      <div style={{color:"rgba(255,255,255,0.4)",fontSize:14,marginBottom:40,textAlign:"center"}}>Bitte anmelden</div>
+      <div style={{width:"100%",maxWidth:360,display:"flex",flexDirection:"column",gap:14}}>
+        <input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="E-Mail" autoCapitalize="none"
+          style={{background:"rgba(255,255,255,0.1)",border:"1.5px solid rgba(255,255,255,0.18)",borderRadius:14,padding:"15px 18px",fontSize:16,color:"#fff",fontFamily:"inherit",outline:"none",boxSizing:"border-box",width:"100%"}} />
+        <input value={password} onChange={e=>setPassword(e.target.value)} type="password" placeholder="Passwort"
+          onKeyDown={e=>{if(e.key==="Enter")handleLogin();}}
+          style={{background:"rgba(255,255,255,0.1)",border:"1.5px solid rgba(255,255,255,0.18)",borderRadius:14,padding:"15px 18px",fontSize:16,color:"#fff",fontFamily:"inherit",outline:"none",boxSizing:"border-box",width:"100%"}} />
+        {err&&<div style={{background:"rgba(220,38,38,0.2)",border:"1px solid rgba(220,38,38,0.4)",borderRadius:12,padding:"12px 16px",color:"#FCA5A5",fontSize:14,fontWeight:600}}>{err}</div>}
+        <button onClick={handleLogin} disabled={loading}
+          style={{background:loading?"rgba(122,158,142,0.5)":`linear-gradient(135deg,${T.sage},#5C7A6E)`,color:"#fff",border:"none",borderRadius:14,padding:"16px",fontSize:16,fontWeight:700,cursor:loading?"default":"pointer",width:"100%"}}>
+          {loading?"Anmelden…":"Anmelden"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
 function LoginScreen({onUnlock}) {
   const [err,setErr] = useState("");
   return (
@@ -2847,6 +2912,7 @@ function TopNavbar({ onAction, unreadCount, missedCount, dark, loading }) {
     { id: "dashboard",  icon: "🏥",  title: "Dashboard Geschäftsleitung (inkl. Belege)" },
     { id: "materialien",icon: "🧪",  title: "Materialcontrolling" },
     { id: "pin",        icon: "🔐",  title: "PIN-Einstellungen" },
+    { id: "logout",     icon: "🚪",  title: "Abmelden" },
     { id: "dark",       icon: dark ? "☀️" : "🌙", title: dark ? "Hell-Modus" : "Dunkelmodus" },
     { id: "email",      icon: "📧",  title: "E-Mail-Einstellungen" },
     { id: "smsein",     icon: "📱",  title: "SMS-Einstellungen" },
@@ -2928,7 +2994,9 @@ function PraxisApp() {
   React.useEffect(() => { Monitor.init(); setTimeout(reqNotifPermission, 3000); }, []);
 
   // ─── Auth ────────────────────────────────────────────────
-  const [unlocked, setUnlocked] = useState(() => !getPINOn());
+  const [unlocked,    setUnlocked]    = useState(() => !getPINOn());
+  const [sbSession,   setSbSession]   = useState(() => sbAuth.getSession());
+  const [authChecked, setAuthChecked] = useState(false);
   const [dark, setDarkS]        = useState(getDark);
   const toggleDark = () => { const n = !dark; setDark(n); setDarkS(n); };
 
@@ -3207,12 +3275,23 @@ function PraxisApp() {
       smsvl:       () => setShowSmsvl(true),
       "zahnärzte": () => setShowZahnärzte(true),
       "new-order": () => setShowIntake(true),
+      "logout":    async () => { const s=sbAuth.getSession(); if(s?.access_token) await sbAuth.signOut(s.access_token); sbAuth.setSession(null); window.location.reload(); },
       "chat":      () => setMainTab("chat"),
       "chat-badge":() => setMainTab("chat"),
     };
     if (actions[id]) actions[id]();
   };
 
+  useEffect(() => {
+    const s = sbAuth.getSession();
+    if (s?.access_token) setSbSession(s);
+    setAuthChecked(true);
+  }, []);
+
+  if (!authChecked) return null;
+  if (!sbSession?.access_token) {
+    return <AuthLoginScreen onAuthSuccess={s => { sbAuth.setSession(s); setSbSession(s); }} />;
+  }
   if (!unlocked) return <LoginScreen onUnlock={() => setUnlocked(true)} />;
 
   return (
