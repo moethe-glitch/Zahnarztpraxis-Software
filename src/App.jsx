@@ -113,21 +113,27 @@ function SignedImg({ path, style, onClick, fallbackStyle }) {
 }
 
 const getPhotoUrl = async (pathOrUrl, bucket = "fotos", expires = 3600) => {
-  if (pathOrUrl && (pathOrUrl.startsWith("http://") || pathOrUrl.startsWith("https://"))) return pathOrUrl;
   if (!pathOrUrl) return null;
   try {
-    const cleanPath = pathOrUrl.replace(`${bucket}/`, "");
-    const session = (() => { try { return JSON.parse(localStorage.getItem("sb_session") || "null"); } catch { return null; } })();
+    let cleanPath = pathOrUrl;
+    if (pathOrUrl.startsWith("http")) {
+      const marker = `/object/public/${bucket}/`;
+      const idx = pathOrUrl.indexOf(marker);
+      if (idx !== -1) { cleanPath = pathOrUrl.substring(idx + marker.length); }
+      else { return null; }
+    }
+    cleanPath = cleanPath.replace(`${bucket}/`, "");
+    const session = (() => { try { const raw = localStorage.getItem("sb_session"); return raw ? JSON.parse(raw) : null; } catch { return null; } })();
     const token = session?.access_token || SB_KEY;
     const res = await fetch(`${SB_URL}/storage/v1/object/sign/${bucket}/${cleanPath}`, {
       method: "POST",
-      headers: { "apikey": SB_KEY, "Authorization": `Bearer ${token}`, "Content-Type": "application/json" },
+      headers: { "Content-Type": "application/json", "Authorization": `Bearer ${token}`, "apikey": SB_KEY },
       body: JSON.stringify({ expiresIn: expires }),
     });
-    if (!res.ok) return pathOrUrl;
+    if (!res.ok) return null;
     const data = await res.json();
-    return `${SB_URL}${data.signedURL}`;
-  } catch { return pathOrUrl; }
+    return `${SB_URL}/storage/v1${data.signedURL}`;
+  } catch { return null; }
 };
 
 // ── Supabase Auth helpers ──────────────────────────────────────
