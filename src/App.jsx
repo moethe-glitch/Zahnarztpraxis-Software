@@ -269,7 +269,7 @@ const ls = {
 };
 
 const getPIN    = ()  => { const p=ls.get("p_pin","1234"); return p&&p.length>=4?p:"1234"; };
-const getPINOn  = ()  => { const v=ls.get("p_pin_on",null); return v===null?true:v==="1"; };
+const getPINOn  = ()  => { const v=ls.get("p_pin_on",null); return v===null?false:v==="1"; }; // PIN off by default
 const setPIN    = p   => ls.set("p_pin", p);
 const setPINOn  = v   => ls.set("p_pin_on", v?"1":"0");
 const getDark   = ()  => ls.get("p_dark","0")==="1";
@@ -3020,9 +3020,24 @@ function PraxisApp() {
   React.useEffect(() => { Monitor.init(); setTimeout(reqNotifPermission, 3000); }, []);
 
   // ─── Auth ────────────────────────────────────────────────
-  const [unlocked,    setUnlocked]    = useState(() => !getPINOn());
+  const [unlocked,    setUnlocked]    = useState(true); // PIN is optional comfort only — Supabase Auth is the real gate
   const [sbSession,   setSbSession]   = useState(() => sbAuth.getSession());
   const [authChecked, setAuthChecked] = useState(false);
+  const [profileErr,  setProfileErr]  = useState(null);
+  const [userProfile, setUserProfile] = useState(null);
+
+  const loadProfile = useCallback(async (session) => {
+    if (!session?.access_token || !isConf()) return;
+    try {
+      const res = await fetch(`${SB_URL}/rest/v1/profiles?id=eq.${session.user.id}&select=rolle,email`, {
+        headers: { "apikey": SB_KEY, "Authorization": `Bearer ${session.access_token}` },
+      });
+      if (!res.ok) throw new Error("Profil nicht gefunden");
+      const data = await res.json();
+      if (!data?.[0]) { setProfileErr("Kein Profil — Administrator kontaktieren"); return; }
+      setUserProfile(data[0]); setProfileErr(null);
+    } catch(e) { setProfileErr(e.message); }
+  }, []);
   const [dark, setDarkS]        = useState(getDark);
   const toggleDark = () => { const n = !dark; setDark(n); setDarkS(n); };
 
@@ -3301,7 +3316,7 @@ function PraxisApp() {
       smsvl:       () => setShowSmsvl(true),
       "zahnärzte": () => setShowZahnärzte(true),
       "new-order": () => setShowIntake(true),
-      "logout":    async () => { const s=sbAuth.getSession(); if(s?.access_token) await sbAuth.signOut(s.access_token); sbAuth.setSession(null); window.location.reload(); },
+      "logout":    async () => { const s=sbAuth.getSession(); if(s?.access_token) await sbAuth.signOut(s.access_token); sbAuth.setSession(null); setUserProfile(null); setProfileErr(null); window.location.reload(); },
       "chat":      () => setMainTab("chat"),
       "chat-badge":() => setMainTab("chat"),
     };
@@ -3310,15 +3325,26 @@ function PraxisApp() {
 
   useEffect(() => {
     const s = sbAuth.getSession();
-    if (s?.access_token) setSbSession(s);
+    if (s?.access_token) { setSbSession(s); loadProfile(s); }
     setAuthChecked(true);
-  }, []);
+  }, [loadProfile]);
 
   if (!authChecked) return null;
   if (!sbSession?.access_token) {
-    return <AuthLoginScreen onAuthSuccess={s => { sbAuth.setSession(s); setSbSession(s); }} />;
+    return <AuthLoginScreen onAuthSuccess={s => { sbAuth.setSession(s); setSbSession(s); loadProfile(s); }} />;
   }
-  if (!unlocked) return <LoginScreen onUnlock={() => setUnlocked(true)} />;
+  if (profileErr) {
+    return (
+      <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:40,gap:16,fontFamily:"-apple-system,sans-serif"}}>
+        <div style={{fontSize:48}}>⚠️</div>
+        <div style={{fontWeight:700,fontSize:20,color:"#DC2626"}}>Kein Zugriff</div>
+        <div style={{fontSize:14,color:"#78716C",textAlign:"center",maxWidth:280}}>{profileErr}</div>
+        <button onClick={async()=>{ const s=sbAuth.getSession(); if(s?.access_token) await sbAuth.signOut(s.access_token); sbAuth.setSession(null); setSbSession(null); window.location.reload(); }} style={{background:"#DC2626",color:"#fff",border:"none",borderRadius:14,padding:"14px 28px",fontSize:15,fontWeight:700,cursor:"pointer"}}>Abmelden</button>
+      </div>
+    );
+  }
+  // Optional PIN (comfort only)
+  if (!unlocked && getPINOn()) return <LoginScreen onUnlock={() => setUnlocked(true)} />;
 
   return (
     <div style={{ minHeight: "100vh", background: bg, fontFamily: "-apple-system,'Helvetica Neue',BlinkMacSystemFont,sans-serif" }}>
