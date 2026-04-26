@@ -2030,7 +2030,7 @@ function BelegListScreen({dark,user,onScanNew}) {
   const [docs,setDocs]=useState([]); const [loading,setLoading]=useState(false); const [filter,setFilter]=useState("alle");
   const [selDoc,setSelDoc]=useState(null); const [showPayment,setShowPayment]=useState(false);
   const bg=dark?T.dbg:T.ivory; const card=dark?T.dcard:"#fff"; const tc=dark?T.dtxt:T.ch; const brd=dark?T.dbrd:T.sand;
-  const isManager=user?.rolle==="geschaeftsleitung"||user?.rolle==="verwaltung";
+  const isManager=user?.rolle==="geschaeftsleitung"||user?.rolle==="verwaltung"||user?.rolle==="admin"||user?.rolle==="praxis"||user?.rolle==="zahnarzt"||user?.rolle==="assistenz";
 
   const load=useCallback(async()=>{
     setLoading(true);
