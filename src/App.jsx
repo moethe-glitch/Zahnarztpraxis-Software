@@ -65,11 +65,12 @@ const ARBEITSTYPEN = [
   "Unterfütterung","Sonstiges",
 ];
 
-const STATUS_FLOW = ["Eingang","In Arbeit","Qualitätskontrolle","Bereit","Zurückgeschickt","Eingesetzt","Archiviert"];
+const STATUS_FLOW = ["Eingang","In Arbeit","Extern","Qualitätskontrolle","Bereit","Zurückgeschickt","Eingesetzt","Archiviert"];
 
 const SM = {
   "Eingang":            {color:T.warn,  bg:T.warnLt, icon:"📥", label:"Eingang"},
   "In Arbeit":          {color:T.blue,  bg:T.blueLt, icon:"⚙️",  label:"In Arbeit"},
+  "Extern":             {color:"#D97706",bg:"#FEF3C7",icon:"🔄", label:"Extern"},
   "Qualitätskontrolle": {color:T.pur,   bg:T.purLt,  icon:"🔍", label:"Kontrolle"},
   "Bereit":             {color:T.ok,    bg:T.okLt,   icon:"✅", label:"Bereit"},
   "Zurückgeschickt":    {color:T.err,   bg:T.errLt,  icon:"↩️",  label:"Zurück"},
@@ -1577,8 +1578,78 @@ function ChatPanel({auftrag,userName,onClose,dark}) {
 }
 
 // ─── Detail Panel ─────────────────────────────────────────────
+function PraxisAuftragEdit({auftrag, dark, onSave}) {
+  const bg=dark?"#1C1917":"#fff"; const tc=dark?"#F5F5F4":"#1C1917"; const fc=dark?"#A8A29E":"#78716C"; const bd=dark?"#44403C":"#E7E5E4";
+  const PRIO=["Normal","Dringend","Notfall"];
+  const [form,setForm]=useState({
+    patient:    auftrag.patient||"",
+    zahnarzt:   auftrag.zahnarzt||"",
+    arbeitstyp: auftrag.arbeitstyp||"",
+    zahn:       auftrag.zahn||"",
+    farbe:      auftrag.farbe||"",
+    faelligkeit:auftrag.faelligkeit||"",
+    prioritaet: auftrag.prioritaet||"Normal",
+    anweisungen:auftrag.anweisungen||"",
+    labor:      auftrag.labor||"",
+    laborName:  auftrag.laborName||"",
+  });
+  const [err,setErr]=useState(null);
+  const [saving,setSaving]=useState(false);
+  const set=(k,v)=>setForm(p=>({...p,[k]:v}));
+  const inp=(label,key,type="text")=>(
+    <div style={{marginBottom:12}}>
+      <div style={{fontSize:11,fontWeight:700,color:fc,textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:4}}>{label}</div>
+      <input type={type} value={form[key]} onChange={e=>set(key,e.target.value)}
+        style={{width:"100%",background:dark?"#292524":"#F5F5F4",border:`1.5px solid ${bd}`,borderRadius:10,padding:"10px 12px",fontSize:14,boxSizing:"border-box",fontFamily:"inherit",color:tc}}/>
+    </div>
+  );
+  const handleSave=async()=>{
+    if(!form.patient.trim()){setErr("Patient ist Pflichtfeld");return;}
+    if(!form.faelligkeit){setErr("Fälligkeitsdatum ist Pflicht");return;}
+    setSaving(true);setErr(null);
+    try{await onSave(form);}catch(e){setErr(e?.message||"Speichern fehlgeschlagen");setSaving(false);}
+  };
+  return(
+    <div style={{padding:"4px 4px 8px"}}>
+      {err&&<div style={{background:"#FEE2E2",color:"#DC2626",borderRadius:10,padding:"10px 12px",marginBottom:12,fontSize:13,fontWeight:600}}>{err}</div>}
+      {inp("Patient *","patient")}
+      {inp("Zahnarzt","zahnarzt")}
+      {inp("Arbeitstyp","arbeitstyp")}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {inp("Zahn","zahn")}
+        {inp("Farbe","farbe")}
+      </div>
+      {inp("Fälligkeit *","faelligkeit","date")}
+      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
+        {inp("Labor","labor")}
+        {inp("Laborname","laborName")}
+      </div>
+      <div style={{marginBottom:12}}>
+        <div style={{fontSize:11,fontWeight:700,color:fc,textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:4}}>Priorität</div>
+        <div style={{display:"flex",gap:6}}>
+          {PRIO.map(p=>(
+            <button key={p} onClick={()=>set("prioritaet",p)}
+              style={{flex:1,padding:"8px 4px",borderRadius:9,border:`1.5px solid ${form.prioritaet===p?"#7A9E8E":bd}`,background:form.prioritaet===p?"#E4EEE9":dark?"#292524":"#F5F5F4",fontSize:12,fontWeight:form.prioritaet===p?700:400,color:form.prioritaet===p?"#5C7A6E":fc,cursor:"pointer"}}>
+              {p}
+            </button>
+          ))}
+        </div>
+      </div>
+      <div style={{marginBottom:16}}>
+        <div style={{fontSize:11,fontWeight:700,color:fc,textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:4}}>Anweisungen</div>
+        <textarea value={form.anweisungen} onChange={e=>set("anweisungen",e.target.value)} rows={4}
+          style={{width:"100%",background:dark?"#292524":"#F5F5F4",border:`1.5px solid ${bd}`,borderRadius:10,padding:"10px 12px",fontSize:14,boxSizing:"border-box",fontFamily:"inherit",color:tc,resize:"vertical"}}/>
+      </div>
+      <button onClick={handleSave} disabled={saving}
+        style={{width:"100%",background:saving?"#E7E5E4":"linear-gradient(135deg,#7A9E8E,#5C7A6E)",color:saving?"#A8A29E":"#fff",border:"none",borderRadius:12,padding:14,fontSize:15,fontWeight:700,cursor:saving?"default":"pointer"}}>
+        {saving?"Speichern…":"Auftrag speichern"}
+      </button>
+    </div>
+  );
+}
+
 function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplicate,onClose,onSmsSend,onEmailSend,onShowBelege,dark}) {
-  const a=auftrag; const [showChat,setShowChat]=useState(false); const [showAnw,setShowAnw]=useState(false);
+  const a=auftrag; const [showChat,setShowChat]=useState(false); const [showEditModal,setShowEditModal]=useState(false); const [editLocked,setEditLocked]=useState(false); const [showAnw,setShowAnw]=useState(false);
   const [showFoto,setShowFoto]=useState(false); const [tips,setTips]=useState([]); const [loadTips,setLoadTips]=useState(false);
   const [anw,setAnw]=useState(a.anweisungen||""); const [anwSaving,setAnwSaving]=useState(false);
   const [dpLbIdx,setDpLbIdx]=useState(null); const [dpLbZoom,setDpLbZoom]=useState(1); const [dpLbSrc,setDpLbSrc]=useState(null);
@@ -1597,6 +1668,7 @@ function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplic
   const ACTIONS=[
     {icon:"💬",label:ug>0?`Chat (${ug})`:"Chat",  fn:()=>setShowChat(true),badge:ug>0},
     {icon:"📋",label:"Anweisungen",                 fn:()=>setShowAnw(true)},
+    {icon:"📝",label:"Bearbeiten",                   fn:()=>{setShowEditModal(true);setEditLocked(true);}},
     {icon:"📷",label:fotos.length>0?`Fotos (${fotos.length})`:"Fotos", fn:()=>setShowFoto(true)},
     {icon:"📱",label:"SMS",                          fn:()=>onSmsSend(a)},
     {icon:"📧",label:"E-Mail",                       fn:()=>onEmailSend(a)},
@@ -1703,6 +1775,17 @@ function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplic
         </div>
       </SidePanel>
       {showChat&&<ChatPanel auftrag={a} userName={userName} onClose={()=>setShowChat(false)} dark={dark}/>}
+      {showEditModal&&(
+        <Modal onClose={()=>{setShowEditModal(false);setEditLocked(false);}} dark={dark}>
+          <ModalHeader title="📝 Auftrag bearbeiten" onClose={()=>{setShowEditModal(false);setEditLocked(false);}} subtitle={a.patient}/>
+          <PraxisAuftragEdit auftrag={a} dark={dark}
+            onSave={async(fields)=>{
+              await ordersService.update(a.id,{...fields,updated_at:new Date().toISOString()});
+              setShowEditModal(false);setEditLocked(false);
+            }}
+          />
+        </Modal>
+      )}
       {showAnw&&(
         <Modal onClose={()=>setShowAnw(false)} dark={dark}>
           <ModalHeader title="📋 Anweisungen" onClose={()=>setShowAnw(false)} subtitle={a.patient} dark={dark}/>
