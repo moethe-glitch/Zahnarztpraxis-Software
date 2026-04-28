@@ -1239,7 +1239,7 @@ function KanbanCol({status,orders,onClick,dark}) {
   const sm=getSM(status);
   const bg=dark?T.dcard:"#fff"; const tc=dark?T.dtxt:T.ch; const brd=dark?T.dbrd:T.sand;
   return (
-    <div style={{flex:"0 0 220px",display:"flex",flexDirection:"column",gap:8}}>
+    <div style={{flex:"1 1 0",minWidth:130,display:"flex",flexDirection:"column",gap:8}}>
       <div style={{background:sm.bg,borderRadius:10,padding:"7px 12px",display:"flex",alignItems:"center",gap:7,flexShrink:0,border:`1.5px solid ${sm.color}30`}}>
         <span style={{fontSize:16}}>{sm.icon}</span>
         <span style={{fontWeight:700,fontSize:12,color:sm.color}}>{sm.label}</span>
@@ -2958,7 +2958,7 @@ function OrdersTab({aufträge,zahnärzte,unread,chatPreview,filterStatus,setFilt
       )}
       {/* KANBAN VIEW */}
       {viewMode==="kanban"&&gefiltert.length>0&&(
-        <div style={{display:"flex",gap:14,overflowX:"auto",paddingBottom:16}}>
+        <div style={{display:"flex",gap:8,overflowX:"hidden",paddingBottom:12}}>
           {STATUS_FLOW.map(s=>(
             <KanbanCol key={s} status={s} orders={gefiltert.filter(a=>a.status===s)} onClick={onRowClick} dark={dark}/>
           ))}
@@ -3499,7 +3499,7 @@ function PraxisApp() {
       </div>
 
       {/* Main Content */}
-      <div style={{ maxWidth: 1200, margin: "0 auto", padding: "20px 20px 48px" }}>
+      <div style={{ maxWidth: "100%", width: "100%", margin: "0 auto", padding: "16px 16px 48px", boxSizing: "border-box" }}>
         {/* Skeleton loader */}
         {loading && isFirstLoad.current && (
           <div style={{ display: "grid", gridTemplateColumns: "repeat(4,1fr)", gap: 12, marginBottom: 20 }}>
