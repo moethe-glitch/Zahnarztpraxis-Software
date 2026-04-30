@@ -1657,7 +1657,7 @@ function PraxisAuftragEdit({auftrag, dark, onSave, isAdmin}) {
   );
 }
 
-function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplicate,onClose,onSmsSend,onEmailSend,onShowBelege,dark}) {
+function DetailPanel({auftrag,userName,isAdmin,zahnärzte,unread,onStatusChange,onDuplicate,onClose,onSmsSend,onEmailSend,onShowBelege,dark}) {
   const a=auftrag; const [showChat,setShowChat]=useState(false); const [showEditModal,setShowEditModal]=useState(false); const [editLocked,setEditLocked]=useState(false); const [showAnw,setShowAnw]=useState(false);
   const [showFoto,setShowFoto]=useState(false); const [tips,setTips]=useState([]); const [loadTips,setLoadTips]=useState(false);
   const [anw,setAnw]=useState(a.anweisungen||""); const [anwSaving,setAnwSaving]=useState(false);
@@ -1787,7 +1787,7 @@ function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplic
       {showEditModal&&(
         <Modal onClose={()=>{setShowEditModal(false);setEditLocked(false);}} dark={dark}>
           <ModalHeader title="📝 Auftrag bearbeiten" onClose={()=>{setShowEditModal(false);setEditLocked(false);}} subtitle={a.patient}/>
-          <PraxisAuftragEdit auftrag={a} dark={dark} isAdmin={user?.rolle==="admin"}
+          <PraxisAuftragEdit auftrag={a} dark={dark} isAdmin={isAdmin}
             onSave={async(fields)=>{
               await ordersService.update(a.id,{...fields,updated_at:new Date().toISOString()});
               setShowEditModal(false);setEditLocked(false);
@@ -3552,7 +3552,7 @@ function PraxisApp() {
       {/* ── OVERLAYS ── */}
       {detail && (
         <DetailPanel
-          auftrag={detail} userName="Praxis" zahnärzte={zahnärzte} unread={ungeleseneChats}
+          auftrag={detail} userName="Praxis" isAdmin={userProfile?.rolle==="admin"} zahnärzte={zahnärzte} unread={ungeleseneChats}
           onStatusChange={handleStatusChange} onDuplicate={handleDuplicate}
           onClose={() => { setDetail(null); loadUnread(); }}
           onSmsSend={a => setSmsAuftrag(a)} onEmailSend={a => setEmailAuftrag(a)}
