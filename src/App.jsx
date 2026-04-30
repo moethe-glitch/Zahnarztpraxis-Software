@@ -1301,7 +1301,7 @@ function FaelligkeitModal({aufträge,onSelect,onClose,dark}) {
 // ─── New Order Intake (3-Step Wizard) ─────────────────────────
 function IntakeModal({patienten,zahnärzte,onSave,onClose,prefill,dark}) {
   const [step,setStep] = useState(prefill?"details":"choose");
-  const [form,setForm] = useState({patient:prefill?.patient||"",zahnarzt:prefill?.zahnarzt||zahnärzte[0]?.name||"",arbeitstyp:ARBEITSTYPEN[0],zahn:"",labor:"Eigenlabor",laborName:"",faelligkeit:addDays(14),prioritaet:"Normal",anweisungen:"",farbe:""});
+  const [form,setForm] = useState({patient:prefill?.patient||"",zahnarzt:prefill?.zahnarzt||zahnärzte[0]?.name||"",arbeitstyp:ARBEITSTYPEN[0],zahn:"",labor:"Eigenlabor",laborName:"",faelligkeit:new Date(Date.now() + 10*24*60*60*1000).toISOString().slice(0,10),prioritaet:"Normal",anweisungen:"",farbe:""});
   const [saving,setSaving] = useState(false); const [saved,setSaved] = useState(null);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
   const bg=dark?T.dcard:"#fff"; const tc=dark?T.dtxt:T.ch; const brd=dark?T.dbrd:T.sand;
@@ -1578,7 +1578,7 @@ function ChatPanel({auftrag,userName,onClose,dark}) {
 }
 
 // ─── Detail Panel ─────────────────────────────────────────────
-function PraxisAuftragEdit({auftrag, dark, onSave}) {
+function PraxisAuftragEdit({auftrag, dark, onSave, isAdmin}) {
   const bg=dark?"#1C1917":"#fff"; const tc=dark?"#F5F5F4":"#1C1917"; const fc=dark?"#A8A29E":"#78716C"; const bd=dark?"#44403C":"#E7E5E4";
   const PRIO=["Normal","Dringend","Notfall"];
   const [form,setForm]=useState({
@@ -1607,7 +1607,11 @@ function PraxisAuftragEdit({auftrag, dark, onSave}) {
     if(!form.patient.trim()){setErr("Patient ist Pflichtfeld");return;}
     if(!form.faelligkeit){setErr("Fälligkeitsdatum ist Pflicht");return;}
     setSaving(true);setErr(null);
-    try{await onSave(form);}catch(e){setErr(e?.message||"Speichern fehlgeschlagen");setSaving(false);}
+    try{
+      const patch={...form};
+      if(!isAdmin) delete patch.faelligkeit;
+      await onSave(patch);
+    }catch(e){setErr(e?.message||"Speichern fehlgeschlagen");setSaving(false);}
   };
   return(
     <div style={{padding:"4px 4px 8px"}}>
@@ -1619,7 +1623,12 @@ function PraxisAuftragEdit({auftrag, dark, onSave}) {
         {inp("Zahn","zahn")}
         {inp("Farbe","farbe")}
       </div>
-      {inp("Fälligkeit *","faelligkeit","date")}
+      <div style={{marginBottom:12}}>
+      <div style={{fontSize:11,fontWeight:700,color:fc,textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:4}}>Fälligkeit *</div>
+      <input type="date" value={form.faelligkeit} onChange={e=>isAdmin&&set("faelligkeit",e.target.value)} readOnly={!isAdmin} disabled={!isAdmin}
+        style={{width:"100%",background:isAdmin?dark?"#292524":"#F5F5F4":bd,border:`1.5px solid ${bd}`,borderRadius:10,padding:"10px 12px",fontSize:14,boxSizing:"border-box",fontFamily:"inherit",color:isAdmin?tc:fc,cursor:isAdmin?"text":"not-allowed"}}/>
+      {!isAdmin&&<div style={{fontSize:11,color:fc,marginTop:3}}>Fälligkeitsdatum kann nur von Admin geändert werden</div>}
+    </div>
       <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:10}}>
         {inp("Labor","labor")}
         {inp("Laborname","laborName")}
@@ -1778,7 +1787,7 @@ function DetailPanel({auftrag,userName,zahnärzte,unread,onStatusChange,onDuplic
       {showEditModal&&(
         <Modal onClose={()=>{setShowEditModal(false);setEditLocked(false);}} dark={dark}>
           <ModalHeader title="📝 Auftrag bearbeiten" onClose={()=>{setShowEditModal(false);setEditLocked(false);}} subtitle={a.patient}/>
-          <PraxisAuftragEdit auftrag={a} dark={dark}
+          <PraxisAuftragEdit auftrag={a} dark={dark} isAdmin={user?.rolle==="admin"}
             onSave={async(fields)=>{
               await ordersService.update(a.id,{...fields,updated_at:new Date().toISOString()});
               setShowEditModal(false);setEditLocked(false);
