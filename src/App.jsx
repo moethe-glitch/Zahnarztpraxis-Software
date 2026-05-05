@@ -161,6 +161,24 @@ const sbAuth = {
   setSession: (s) => {
     try { localStorage.setItem("sb_session", s ? JSON.stringify(s) : "null"); } catch {}
   },
+  resetPasswordForEmail: async (email, redirectTo) => {
+    const res = await fetch(`${SB_URL}/auth/v1/recover`, {
+      method: "POST",
+      headers: { "Content-Type": "application/json", apikey: SB_KEY },
+      body: JSON.stringify({ email, redirect_to: redirectTo }),
+    });
+    if (!res.ok) { const text = await res.text(); throw new Error(text || "Reset-Link konnte nicht gesendet werden"); }
+    return res.json();
+  },
+  updatePassword: async (accessToken, password) => {
+    const res = await fetch(`${SB_URL}/auth/v1/user`, {
+      method: "PUT",
+      headers: { "Content-Type": "application/json", apikey: SB_KEY, Authorization: `Bearer ${accessToken}` },
+      body: JSON.stringify({ password }),
+    });
+    if (!res.ok) { const text = await res.text(); throw new Error(text || "Passwort konnte nicht geändert werden"); }
+    return res.json();
+  },
 };
 
 async function sbReq(path, opts = {}) {
@@ -741,10 +759,12 @@ function PinPad({onSubmit,error,dark,length=4}) {
 // LOGIN SCREEN
 // ═══════════════════════════════════════════════════════════════
 function AuthLoginScreen({onAuthSuccess}) {
-  const [email,    setEmail]    = useState("");
-  const [password, setPassword] = useState("");
-  const [loading,  setLoading]  = useState(false);
-  const [err,      setErr]      = useState(null);
+  const [email,      setEmail]      = useState("");
+  const [password,   setPassword]   = useState("");
+  const [loading,    setLoading]    = useState(false);
+  const [err,        setErr]        = useState(null);
+  const [showForgot, setShowForgot] = useState(false);
+  const [forgotMsg,  setForgotMsg]  = useState("");
 
   const handleLogin = async () => {
     if (!email.trim() || !password.trim()) { setErr("E-Mail und Passwort eingeben"); return; }
@@ -757,6 +777,18 @@ function AuthLoginScreen({onAuthSuccess}) {
     setLoading(false);
   };
 
+  const handleForgot = async () => {
+    if (!email.trim()) { setErr("Bitte E-Mail eingeben"); return; }
+    setLoading(true); setErr(null); setForgotMsg("");
+    try {
+      await sbAuth.resetPasswordForEmail(email.trim(), "https://software-praxis.netlify.app/");
+      setForgotMsg("Wenn diese E-Mail existiert, wurde ein Link gesendet.");
+    } catch(e) { setErr(e.message || "Fehler beim Senden"); }
+    setLoading(false);
+  };
+
+  const inpSt = {background:"rgba(255,255,255,0.1)",border:"1.5px solid rgba(255,255,255,0.18)",borderRadius:14,padding:"15px 18px",fontSize:16,color:"#fff",fontFamily:"inherit",outline:"none",boxSizing:"border-box",width:"100%"};
+
   return (
     <div style={{minHeight:"100vh",background:`linear-gradient(160deg,${T.brandDk} 0%,#1a0f0f 100%)`,display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:"48px 28px"}}>
       <style>{CSS}</style>
@@ -764,15 +796,27 @@ function AuthLoginScreen({onAuthSuccess}) {
       <div style={{color:T.sage,fontWeight:700,fontSize:22,fontFamily:"Georgia,serif",marginBottom:6,textAlign:"center"}}>Praxis-Software</div>
       <div style={{color:"rgba(255,255,255,0.4)",fontSize:14,marginBottom:40,textAlign:"center"}}>Bitte anmelden</div>
       <div style={{width:"100%",maxWidth:360,display:"flex",flexDirection:"column",gap:14}}>
-        <input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="E-Mail" autoCapitalize="none"
-          style={{background:"rgba(255,255,255,0.1)",border:"1.5px solid rgba(255,255,255,0.18)",borderRadius:14,padding:"15px 18px",fontSize:16,color:"#fff",fontFamily:"inherit",outline:"none",boxSizing:"border-box",width:"100%"}} />
-        <input value={password} onChange={e=>setPassword(e.target.value)} type="password" placeholder="Passwort"
-          onKeyDown={e=>{if(e.key==="Enter")handleLogin();}}
-          style={{background:"rgba(255,255,255,0.1)",border:"1.5px solid rgba(255,255,255,0.18)",borderRadius:14,padding:"15px 18px",fontSize:16,color:"#fff",fontFamily:"inherit",outline:"none",boxSizing:"border-box",width:"100%"}} />
+        <input value={email} onChange={e=>setEmail(e.target.value)} type="email" placeholder="E-Mail" autoCapitalize="none" style={inpSt}/>
+        {!showForgot && (
+          <input value={password} onChange={e=>setPassword(e.target.value)} type="password" placeholder="Passwort"
+            onKeyDown={e=>{if(e.key==="Enter")handleLogin();}} style={inpSt}/>
+        )}
         {err&&<div style={{background:"rgba(220,38,38,0.2)",border:"1px solid rgba(220,38,38,0.4)",borderRadius:12,padding:"12px 16px",color:"#FCA5A5",fontSize:14,fontWeight:600}}>{err}</div>}
-        <button onClick={handleLogin} disabled={loading}
-          style={{background:loading?"rgba(122,158,142,0.5)":`linear-gradient(135deg,${T.sage},#5C7A6E)`,color:"#fff",border:"none",borderRadius:14,padding:"16px",fontSize:16,fontWeight:700,cursor:loading?"default":"pointer",width:"100%"}}>
-          {loading?"Anmelden…":"Anmelden"}
+        {forgotMsg&&<div style={{background:"rgba(122,158,142,0.2)",border:"1px solid rgba(122,158,142,0.4)",borderRadius:12,padding:"12px 16px",color:"#6EE7B7",fontSize:14,fontWeight:600}}>{forgotMsg}</div>}
+        {!showForgot ? (
+          <button onClick={handleLogin} disabled={loading}
+            style={{background:loading?"rgba(122,158,142,0.5)":`linear-gradient(135deg,${T.sage},#5C7A6E)`,color:"#fff",border:"none",borderRadius:14,padding:"16px",fontSize:16,fontWeight:700,cursor:loading?"default":"pointer",width:"100%"}}>
+            {loading?"Anmelden…":"Anmelden"}
+          </button>
+        ) : (
+          <button onClick={handleForgot} disabled={loading}
+            style={{background:loading?"rgba(122,158,142,0.5)":`linear-gradient(135deg,${T.sage},#5C7A6E)`,color:"#fff",border:"none",borderRadius:14,padding:"16px",fontSize:16,fontWeight:700,cursor:loading?"default":"pointer",width:"100%"}}>
+            {loading?"Senden…":"Reset-Link senden"}
+          </button>
+        )}
+        <button onClick={()=>{setShowForgot(p=>!p);setErr(null);setForgotMsg("");}}
+          style={{background:"none",border:"none",color:"rgba(255,255,255,0.5)",fontSize:13,cursor:"pointer",padding:"4px 0",textDecoration:"underline"}}>
+          {showForgot?"← Zurück zum Login":"Passwort vergessen?"}
         </button>
       </div>
     </div>
@@ -1709,6 +1753,25 @@ function DetailPanel({auftrag,userName,isAdmin,zahnärzte,unread,onStatusChange,
             </div>
             <ProgressDots status={a.status}/>
           </Card>
+
+          {/* Patient terminiert — nur bei Status Bereit */}
+          {a.status==="Bereit"&&(
+            <div style={{background:a.patient_terminiert?T.okLt:T.warnLt,borderRadius:14,padding:"12px 16px",display:"flex",alignItems:"center",gap:12,cursor:"pointer",marginBottom:8}}
+              onClick={async()=>{
+                const newVal=!a.patient_terminiert;
+                try{
+                  await ordersService.update(a.id,{patient_terminiert:newVal,updated_at:new Date().toISOString()});
+                  if(typeof setDetail==="function") setDetail(p=>({...p,patient_terminiert:newVal}));
+                }catch(e){console.error("Terminiert update fehlgeschlagen:",e.message);}
+              }}>
+              <span style={{fontSize:22}}>{a.patient_terminiert?"✅":"⬜"}</span>
+              <div>
+                <div style={{fontSize:14,fontWeight:700,color:a.patient_terminiert?T.ok:T.warn}}>Patient terminiert</div>
+                <div style={{fontSize:12,color:T.gray,marginTop:2}}>{a.patient_terminiert?"Einsetzen/Abholung geplant":"Noch kein Termin vereinbart"}</div>
+              </div>
+            </div>
+          )}
+
           {/* Action buttons */}
           <div style={{display:"grid",gridTemplateColumns:"repeat(4,1fr)",gap:8,marginBottom:12}}>
             {ACTIONS.map(btn=>(
@@ -3132,6 +3195,8 @@ function PraxisApp() {
   // ─── Auth ────────────────────────────────────────────────
   const [unlocked,    setUnlocked]    = useState(true); // PIN is optional comfort only — Supabase Auth is the real gate
   const [sbSession,   setSbSession]   = useState(() => sbAuth.getSession());
+  const [isRecovery,   setIsRecovery]   = useState(false);
+  const [recoveryToken,setRecoveryToken] = useState(null);
   const [authChecked, setAuthChecked] = useState(false);
   const [profileErr,  setProfileErr]  = useState(null);
   const [userProfile, setUserProfile] = useState(null);
@@ -3177,6 +3242,8 @@ function PraxisApp() {
   const [showMissedOverlay, setShowMissedOverlay] = useState(false);
   const [openChatAid,     setOpenChatAid]     = useState(null); // auftrag_id for which chat is open
   const lastMissedNotif   = useRef(0);
+  const lastSoundKeyRef   = useRef(null);
+  const snoozedUntilRef   = useRef(0);
   const dismissedMissed   = useRef(new Set()); // IDs die als "gesehen" markiert wurden
 
   // ─── Modals ──────────────────────────────────────────────
@@ -3263,18 +3330,23 @@ function PraxisApp() {
       setMissedMsgs(filtered);
 
       if (filtered.length > 0) {
-        // Sound starten
-        startAlertSound();
-        // Push-Notif alle 2 Minuten
-        const now = Date.now();
-        if (now - lastMissedNotif.current > 120000) {
-          lastMissedNotif.current = now;
-          pushNotif("⚠ Verpasste Nachrichten!", `${filtered.length} ungelesene Nachricht${filtered.length !== 1 ? "en" : ""} warten auf Sie.`, "chat");
+        if (Date.now() < snoozedUntilRef.current) {
+          // snoozed — Badge bleibt, kein Ton, kein Overlay
+        } else {
+          const newestKey = filtered[0]?.erstellt_am || null;
+          if (newestKey !== lastSoundKeyRef.current) {
+            lastSoundKeyRef.current = newestKey;
+            startAlertSound();
+          }
+          const now = Date.now();
+          if (now - lastMissedNotif.current > 120000) {
+            lastMissedNotif.current = now;
+            pushNotif("⚠ Verpasste Nachrichten!", `${filtered.length} ungelesene Nachricht${filtered.length !== 1 ? "en" : ""} warten auf Sie.`, "chat");
+          }
+          if (!showMissedOverlay) setShowMissedOverlay(true);
         }
-        // Overlay zeigen wenn neue verpasste Nachrichten (noch nicht im Overlay gesehen)
-        setShowMissedOverlay(prev => !prev ? true : prev);
       } else {
-        stopAlertSound();
+        stopAlertSound(); lastSoundKeyRef.current = null;
         setShowMissedOverlay(false);
       }
 
@@ -3434,12 +3506,22 @@ function PraxisApp() {
   };
 
   useEffect(() => {
+    // ── Recovery Link Detection ───────────────────────────────
+    const hash = window.location.hash;
+    if (hash && hash.includes("type=recovery")) {
+      const params = new URLSearchParams(hash.replace("#", ""));
+      const rToken = params.get("access_token");
+      if (rToken) { setIsRecovery(true); setRecoveryToken(rToken); setAuthChecked(true); return; }
+    }
     const s = sbAuth.getSession();
     if (s?.access_token) { setSbSession(s); loadProfile(s); }
     setAuthChecked(true);
   }, [loadProfile]);
 
   if (!authChecked) return null;
+  if (isRecovery) {
+    return <RecoveryScreen accessToken={recoveryToken} onDone={() => { setIsRecovery(false); setRecoveryToken(null); }} />;
+  }
   if (!sbSession?.access_token) {
     return <AuthLoginScreen onAuthSuccess={s => { sbAuth.setSession(s); setSbSession(s); loadProfile(s); }} />;
   }
@@ -3590,9 +3672,9 @@ function PraxisApp() {
           count={totalMissed}
           onGo={() => { setShowMissedOverlay(false); setMainTab("chat"); stopAlertSound(); }}
           onLater={() => {
+            snoozedUntilRef.current = Date.now() + 30 * 60 * 1000;
+            stopAlertSound();
             setShowMissedOverlay(false);
-            // In 5 Minuten erneut anzeigen
-            setTimeout(() => { if (missedMsgs.length > 0) setShowMissedOverlay(true); }, 5 * 60 * 1000);
           }}
         />
       )}
@@ -3603,6 +3685,61 @@ function PraxisApp() {
 // ═══════════════════════════════════════════════════════════════
 // EXPORT
 // ═══════════════════════════════════════════════════════════════
+function RecoveryScreen({ accessToken, onDone }) {
+  const bg=T.ivory; const tc=T.ch; const fc=T.fog; const bd=T.sand;
+  const [pw,    setPw]    = useState("");
+  const [pw2,   setPw2]   = useState("");
+  const [err,   setErr]   = useState(null);
+  const [ok,    setOk]    = useState(false);
+  const [saving,setSaving] = useState(false);
+
+  const handleSave = async () => {
+    setErr(null);
+    if (pw.length < 8) { setErr("Passwort muss mindestens 8 Zeichen haben"); return; }
+    if (pw !== pw2)    { setErr("Passwörter stimmen nicht überein"); return; }
+    setSaving(true);
+    try {
+      await sbAuth.updatePassword(accessToken, pw);
+      window.history.replaceState({}, "", "/");
+      setOk(true);
+      setTimeout(() => onDone(), 2000);
+    } catch(e) { setErr(e?.message || "Fehler beim Speichern"); }
+    setSaving(false);
+  };
+
+  const inp = {width:"100%",background:"#F5F5F4",border:`1.5px solid ${bd}`,borderRadius:12,padding:"14px 16px",fontSize:15,boxSizing:"border-box",fontFamily:"inherit",color:tc,outline:"none"};
+
+  return (
+    <div style={{minHeight:"100vh",display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",padding:40,background:`linear-gradient(160deg,${T.brandDk} 0%,#1a0f0f 100%)`}}>
+      <div style={{width:"100%",maxWidth:380,background:"#fff",borderRadius:20,padding:32,boxShadow:"0 8px 40px rgba(0,0,0,0.18)"}}>
+        <div style={{fontSize:24,fontWeight:700,fontFamily:"Georgia,serif",color:tc,marginBottom:6}}>Neues Passwort</div>
+        <div style={{fontSize:14,color:fc,marginBottom:24}}>Bitte wähle ein sicheres Passwort (mind. 8 Zeichen).</div>
+        {ok ? (
+          <div style={{background:"#ECFDF5",color:"#065F46",borderRadius:12,padding:"14px 16px",fontSize:14,fontWeight:600,textAlign:"center"}}>
+            ✅ Passwort geändert. Bitte neu einloggen.
+          </div>
+        ) : (
+          <>
+            {err && <div style={{background:"#FEE2E2",color:"#DC2626",borderRadius:10,padding:"12px 14px",marginBottom:14,fontSize:13,fontWeight:600}}>{err}</div>}
+            <div style={{marginBottom:14}}>
+              <div style={{fontSize:11,fontWeight:700,color:fc,textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:5}}>Neues Passwort</div>
+              <input type="password" value={pw} onChange={e=>setPw(e.target.value)} placeholder="Mindestens 8 Zeichen" style={inp}/>
+            </div>
+            <div style={{marginBottom:22}}>
+              <div style={{fontSize:11,fontWeight:700,color:fc,textTransform:"uppercase",letterSpacing:"0.7px",marginBottom:5}}>Bestätigen</div>
+              <input type="password" value={pw2} onChange={e=>setPw2(e.target.value)} placeholder="Passwort wiederholen" style={inp}/>
+            </div>
+            <button onClick={handleSave} disabled={saving}
+              style={{width:"100%",background:saving?"#E7E5E4":`linear-gradient(135deg,${T.sage},#5C7A6E)`,color:saving?"#A8A29E":"#fff",border:"none",borderRadius:12,padding:14,fontSize:15,fontWeight:700,cursor:saving?"default":"pointer"}}>
+              {saving?"Speichern…":"Passwort speichern"}
+            </button>
+          </>
+        )}
+      </div>
+    </div>
+  );
+}
+
 export default function ZahnlaborApp() {
   const [dark] = useState(getDark);
   return <ErrorBoundary dark={dark}><PraxisApp /></ErrorBoundary>;
