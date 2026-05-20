@@ -3585,6 +3585,7 @@ function PraxisApp() {
       search:      () => setShowSearch(true),
       kalender:    () => setShowKalender(true),
       statistik:   () => setShowStatistik(true),
+      arbeitstypstat: () => { if(userProfile?.rolle==="admin") setShowArbeitstypStat(true); },
       monat:       () => setShowMonat(true),
       dashboard:   () => setShowDashboard(true),
       materialien: () => setShowMaterials(true),
@@ -3748,6 +3749,7 @@ function PraxisApp() {
       {showBelege   && <BelegeModal onClose={() => setShowBelege(false)} dark={dark} />}
       {showKalender && <FaelligkeitModal aufträge={aufträge} onSelect={a => setDetail(a)} onClose={() => setShowKalender(false)} dark={dark} />}
       {showStatistik && <StatistikModal aufträge={aufträge} onClose={() => setShowStatistik(false)} dark={dark} />}
+      {showArbeitstypStat && userProfile?.rolle==="admin" && <ArbeitstypStatModal aufträge={aufträge} dark={dark} onClose={() => setShowArbeitstypStat(false)} />}
       {showMonat    && <MonatsberichtModal aufträge={aufträge} onClose={() => setShowMonat(false)} dark={dark} />}
       {showDashboard && (
         <DashboardModal
@@ -3834,6 +3836,69 @@ function RecoveryScreen({ accessToken, onDone }) {
         )}
       </div>
     </div>
+  );
+}
+
+function ArbeitstypStatModal({ aufträge, dark, onClose }) {
+  const bg=dark?T.dcard:"#fff"; const tc=dark?T.dtxt:T.ch; const fc=dark?T.dgray:T.gray; const bd=dark?T.dbrd:T.sand;
+  const FILTER_OPTS = ["Diese Woche","Dieser Monat","Dieses Jahr","Alle"];
+  const [filter, setFilter] = useState("Dieser Monat");
+  const todayD = new Date();
+
+  const filtered = (aufträge || []).filter(a => {
+    if (filter === "Alle") return true;
+    const d = new Date(a.eingang || a.created_at || "");
+    if (isNaN(d)) return true;
+    if (filter === "Diese Woche") { const mon = new Date(todayD); mon.setDate(todayD.getDate() - todayD.getDay() + 1); return d >= mon; }
+    if (filter === "Dieser Monat") return d.getFullYear()===todayD.getFullYear() && d.getMonth()===todayD.getMonth();
+    if (filter === "Dieses Jahr")  return d.getFullYear()===todayD.getFullYear();
+    return true;
+  });
+
+  const grouped = filtered.reduce((acc, a) => { const k=(a.arbeitstyp||"Unbekannt").trim(); acc[k]=(acc[k]||0)+1; return acc; }, {});
+  const sorted = Object.entries(grouped).sort((a,b) => b[1]-a[1]);
+  const total = filtered.length;
+  const topType = sorted[0]?.[0] || "–";
+  const typeCount = sorted.length;
+  const maxVal = sorted[0]?.[1] || 1;
+
+  return (
+    <Modal onClose={onClose} dark={dark}>
+      <ModalHeader title="🦷 Arbeitstyp-Statistik" onClose={onClose} subtitle="Admin"/>
+      <div style={{padding:"0 4px 8px"}}>
+        <div style={{display:"flex",gap:6,marginBottom:14,flexWrap:"wrap"}}>
+          {FILTER_OPTS.map(f=>(
+            <button key={f} onClick={()=>setFilter(f)}
+              style={{padding:"5px 12px",borderRadius:20,border:`1.5px solid ${filter===f?"#7A9E8E":bd}`,background:filter===f?"#E4EEE9":"transparent",color:filter===f?"#5C7A6E":fc,fontSize:12,fontWeight:filter===f?700:400,cursor:"pointer"}}>
+              {f}
+            </button>
+          ))}
+        </div>
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8,marginBottom:12}}>
+          {[{l:"Gesamt",v:total},{l:"Typen",v:typeCount},{l:"Top-Typ",v:topType.length>10?topType.slice(0,9)+"…":topType}].map(k=>(
+            <div key={k.l} style={{background:dark?"#292524":"#F5F5F4",borderRadius:12,padding:"10px 12px"}}>
+              <div style={{fontSize:k.l==="Top-Typ"?12:20,fontWeight:800,color:"#7A9E8E",lineHeight:1.2}}>{k.v}</div>
+              <div style={{fontSize:11,color:fc,marginTop:2}}>{k.l}</div>
+            </div>
+          ))}
+        </div>
+        {sorted.length === 0 ? (
+          <div style={{textAlign:"center",color:fc,padding:"24px 0",fontSize:14}}>Keine Statistikdaten vorhanden</div>
+        ) : (
+          <div style={{display:"flex",flexDirection:"column",gap:5}}>
+            {sorted.map(([typ, count]) => (
+              <div key={typ} style={{background:dark?"#292524":"#F5F5F4",borderRadius:10,padding:"9px 12px",display:"flex",alignItems:"center",gap:10}}>
+                <div style={{flex:1,fontSize:13,color:tc,fontWeight:500}}>{typ}</div>
+                <div style={{width:70,height:5,background:bd,borderRadius:4,overflow:"hidden"}}>
+                  <div style={{width:`${Math.round(count/maxVal*100)}%`,height:"100%",background:"#7A9E8E",borderRadius:4}}/>
+                </div>
+                <div style={{fontSize:17,fontWeight:800,color:"#7A9E8E",minWidth:26,textAlign:"right"}}>{count}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    </Modal>
   );
 }
 
