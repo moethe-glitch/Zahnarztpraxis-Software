@@ -56,14 +56,34 @@ button:focus-visible,input:focus-visible,textarea:focus-visible,select:focus-vis
 // ═══════════════════════════════════════════════════════════════
 // STATIC DATA
 // ═══════════════════════════════════════════════════════════════
-const ARBEITSTYPEN = [
-  "Zahnkrone","Brücke","Inlay/Onlay","Veneer",
-  "Vollprothese","Teilprothese","Implantat-Krone","Implantat-Brücke",
-  "Teleskopprothese","Haken-Klammer-Prothese","Zahnspange","Retainer",
-  "Kieferschiene","Mundschutz","Bleaching-Schiene","Aufbissschiene",
-  "Knirscherschiene","Schnarcherschiene","Zahnfleischmaske","Reparatur",
-  "Unterfütterung","Sonstiges",
-];
+const OK_UK_TYPEN = ["Totalprothese","Knirscherschiene","Unterfütterung","Prothesenreparatur","Interimsprothese","Modellgussprothese"];
+
+const ZÄHNE_SCHEMA = {
+  OK: [18,17,16,15,14,13,12,11,21,22,23,24,25,26,27,28],
+  UK: [48,47,46,45,44,43,42,41,31,32,33,34,35,36,37,38],
+};
+
+function formatZähne(teeth) {
+  if (!teeth.length) return "";
+  const sorted = [...teeth].sort((a,b)=>a-b);
+  const ranges = []; let start=sorted[0], end=sorted[0];
+  for (let i=1;i<sorted.length;i++) {
+    if (sorted[i]===end+1) { end=sorted[i]; }
+    else { ranges.push(start===end?`${start}`:`${start}–${end}`); start=end=sorted[i]; }
+  }
+  ranges.push(start===end?`${start}`:`${start}–${end}`);
+  return ranges.join(", ");
+}
+
+function buildInstruction(teeth, region, arbeitstyp) {
+  if (region) return `${region}: ${arbeitstyp}`;
+  if (!teeth.length) return arbeitstyp;
+  const zStr = formatZähne(teeth);
+  const prefix = teeth.length === 1 ? "Zahn" : "Zähne";
+  return `${prefix} ${zStr}: ${arbeitstyp}`;
+}
+
+
 
 const STATUS_FLOW = ["Eingang","In Arbeit","Extern","Qualitätskontrolle","Bereit","Zurückgeschickt","Eingesetzt","Archiviert"];
 
@@ -1347,7 +1367,36 @@ function IntakeModal({patienten,zahnärzte,onSave,onClose,prefill,dark}) {
   const [step,setStep] = useState(prefill?"details":"choose");
   const [form,setForm] = useState({patient:prefill?.patient||"",zahnarzt:prefill?.zahnarzt||zahnärzte[0]?.name||"",arbeitstyp:ARBEITSTYPEN[0],zahn:"",labor:"Eigenlabor",laborName:"",faelligkeit:new Date(Date.now() + 10*24*60*60*1000).toISOString().slice(0,10),prioritaet:"Normal",anweisungen:"",farbe:""});
   const [saving,setSaving] = useState(false); const [saved,setSaved] = useState(null);
+  const [selectedTeeth,setSelectedTeeth] = useState([]);
+  const [selectedRegion,setSelectedRegion] = useState(null);
+  const [dentalErr,setDentalErr] = useState(null);
+  const [arbeitstypen,setArbeitstypen] = useState([]);
+  const [newTypeName,setNewTypeName] = useState("");
+  const [showAddType,setShowAddType] = useState(false);
   const set=(k,v)=>setForm(f=>({...f,[k]:v}));
+
+  // ── Arbeitstypen dynamisch aus Supabase ─────────────────────
+  useEffect(() => {
+    sbReq("arbeitstypen?active=eq.true&order=name").then(rows => {
+      if (Array.isArray(rows) && rows.length) setArbeitstypen(rows);
+    }).catch(() => {});
+  }, []);
+
+  const addArbeitstyp = async () => {
+    if (!newTypeName.trim()) return;
+    try {
+      const rows = await sbReq("arbeitstypen", { method:"POST", prefer:"return=representation", body: JSON.stringify({ name: newTypeName.trim(), is_default: false, active: true }) });
+      if (Array.isArray(rows) && rows[0]) setArbeitstypen(p => [...p, rows[0]]);
+      setNewTypeName(""); setShowAddType(false);
+    } catch(e) { console.error("addArbeitstyp:", e.message); }
+  };
+
+  const removeArbeitstyp = async (id) => {
+    try {
+      await sbReq(`arbeitstypen?id=eq.${id}`, { method:"PATCH", prefer:"return=minimal", body: JSON.stringify({ active: false }) });
+      setArbeitstypen(p => p.filter(t => t.id !== id));
+    } catch(e) { console.error("removeArbeitstyp:", e.message); }
+  };
   const bg=dark?T.dcard:"#fff"; const tc=dark?T.dtxt:T.ch; const brd=dark?T.dbrd:T.sand;
   const handleSave=async()=>{
     if(saving) return; setSaving(true);
@@ -1463,10 +1512,58 @@ function IntakeModal({patienten,zahnärzte,onSave,onClose,prefill,dark}) {
               </div>
             </div>
             <div style={{marginBottom:12}}>
+              <SectionLabel>Zahnauswahl</SectionLabel>
+              <div style={{marginBottom:6}}>
+                {["OK","UK","OK+UK"].map(r=>(
+                  <button key={r} onClick={()=>{setSelectedRegion(p=>p===r?null:r);setSelectedTeeth([]);setDentalErr(null);}}
+                    style={{marginRight:6,marginBottom:6,padding:"4px 12px",borderRadius:10,border:`1.5px solid ${selectedRegion===r?"#5C7A6E":"#E7E5E4"}`,background:selectedRegion===r?"#E4EEE9":"transparent",fontWeight:selectedRegion===r?700:400,fontSize:13,cursor:"pointer"}}>
+                    {r}
+                  </button>
+                ))}
+              </div>
+              {["OK","UK"].map((jaw,ji)=>(
+                <div key={jaw} style={{display:"grid",gridTemplateColumns:"repeat(8,1fr)",gap:3,marginBottom:4}}>
+                  {ZÄHNE_SCHEMA[jaw].map(z=>{
+                    const sel=selectedTeeth.includes(z);
+                    return <button key={z} onClick={()=>{setSelectedRegion(null);setSelectedTeeth(p=>p.includes(z)?p.filter(x=>x!==z):[...p,z]);setDentalErr(null);}}
+                      style={{padding:"5px 2px",borderRadius:7,border:`1.5px solid ${sel?"#5C7A6E":"#E7E5E4"}`,background:sel?"#E4EEE9":"transparent",fontSize:11,fontWeight:sel?700:400,cursor:"pointer",textAlign:"center"}}>
+                      {z}
+                    </button>;
+                  })}
+                </div>
+              ))}
+              {(selectedTeeth.length>0||selectedRegion)&&(
+                <button onClick={()=>{setSelectedTeeth([]);setSelectedRegion(null);}} style={{fontSize:11,color:"#DC2626",background:"none",border:"none",cursor:"pointer",padding:"2px 0",marginBottom:4}}>✕ Auswahl löschen</button>
+              )}
               <SectionLabel>Arbeitstyp *</SectionLabel>
-              <Select value={form.arbeitstyp} onChange={e=>set("arbeitstyp",e.target.value)} dark={dark}>
-                {ARBEITSTYPEN.map(t=><option key={t} value={t}>{t}</option>)}
-              </Select>
+              {showAddType?(
+                <div style={{display:"flex",gap:6,marginTop:4,marginBottom:4}}>
+                  <input value={newTypeName} onChange={e=>setNewTypeName(e.target.value)} placeholder="Neuer Arbeitstyp…" style={{flex:1,background:dark?"#292524":"#F5F5F4",border:"1.5px solid #E7E5E4",borderRadius:10,padding:"6px 10px",fontSize:13,fontFamily:"inherit"}}/>
+                  <button onClick={addArbeitstyp} style={{background:"#5C7A6E",color:"#fff",border:"none",borderRadius:10,padding:"6px 12px",fontSize:13,fontWeight:700,cursor:"pointer"}}>Hinzufügen</button>
+                  <button onClick={()=>{setShowAddType(false);setNewTypeName("");}} style={{background:"none",border:"1px solid #E7E5E4",borderRadius:10,padding:"6px 10px",fontSize:13,cursor:"pointer",color:"#A8A29E"}}>Abbruch</button>
+                </div>
+              ):(
+                <button onClick={()=>setShowAddType(true)} style={{marginTop:4,marginBottom:4,background:"none",border:"1.5px dashed #7A9E8E",color:"#7A9E8E",borderRadius:10,padding:"5px 12px",fontSize:12,cursor:"pointer"}}>+ Arbeitstyp hinzufügen</button>
+              )}
+              {dentalErr&&<div style={{fontSize:12,color:"#DC2626",marginBottom:4,fontWeight:600}}>{dentalErr}</div>}
+              <div style={{display:"flex",flexWrap:"wrap",gap:6,marginBottom:4}}>
+                {(arbeitstypen.length?arbeitstypen:[{name:"Zirkonkrone",is_default:true},{name:"E.max-Krone",is_default:true},{name:"Zirkonbrücke",is_default:true},{name:"E.max-Brücke",is_default:true},{name:"Metallverblendkrone",is_default:true},{name:"Interimsprothese",is_default:true},{name:"Modellgussprothese",is_default:true},{name:"Teleskopprothese",is_default:true},{name:"Totalprothese",is_default:true},{name:"Implantatkrone",is_default:true},{name:"Implantatbrücke",is_default:true},{name:"Individuelles Abutment",is_default:true},{name:"Knirscherschiene",is_default:true},{name:"Unterfütterung",is_default:true},{name:"Prothesenreparatur",is_default:true}]).map(t=>(
+                  <div key={t.id||t.name} style={{display:"flex",alignItems:"center",gap:2}}>
+                    <button onClick={()=>{
+                      if(!selectedTeeth.length&&!selectedRegion){setDentalErr("Bitte zuerst Zahn oder Bereich wählen");return;}
+                      setDentalErr(null);
+                      const instr=buildInstruction(selectedTeeth,selectedRegion,t.name);
+                      set("anweisungen",(form.anweisungen?form.anweisungen+"\n":"")+instr);
+                      set("arbeitstyp",t.name);
+                      set("zahn",selectedRegion||formatZähne(selectedTeeth));
+                      setSelectedTeeth([]);setSelectedRegion(null);
+                    }} style={{padding:"5px 10px",borderRadius:10,border:`1.5px solid ${form.arbeitstyp===t.name?"#5C7A6E":"#E7E5E4"}`,background:form.arbeitstyp===t.name?"#E4EEE9":"transparent",fontSize:12,fontWeight:form.arbeitstyp===t.name?700:400,cursor:"pointer"}}>
+                      {t.name}
+                    </button>
+                    {!t.is_default&&t.id&&<button onClick={()=>removeArbeitstyp(t.id)} style={{background:"none",border:"none",color:"#A8A29E",fontSize:10,cursor:"pointer",padding:"0 2px"}}>✕</button>}
+                  </div>
+                ))}
+              </div>
             </div>
             <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:12,marginBottom:12}}>
               <div>
