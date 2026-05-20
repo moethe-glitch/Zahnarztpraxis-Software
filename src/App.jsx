@@ -1365,7 +1365,7 @@ function FaelligkeitModal({aufträge,onSelect,onClose,dark}) {
 // ─── New Order Intake (3-Step Wizard) ─────────────────────────
 function IntakeModal({patienten,zahnärzte,onSave,onClose,prefill,dark}) {
   const [step,setStep] = useState(prefill?"details":"choose");
-  const [form,setForm] = useState({patient:prefill?.patient||"",zahnarzt:prefill?.zahnarzt||zahnärzte[0]?.name||"",arbeitstyp:ARBEITSTYPEN[0],zahn:"",labor:"Eigenlabor",laborName:"",faelligkeit:new Date(Date.now() + 10*24*60*60*1000).toISOString().slice(0,10),prioritaet:"Normal",anweisungen:"",farbe:""});
+  const [form,setForm] = useState({patient:prefill?.patient||"",zahnarzt:prefill?.zahnarzt||zahnärzte[0]?.name||"",arbeitstyp:"Zirkonkrone",zahn:"",labor:"Eigenlabor",laborName:"",faelligkeit:new Date(Date.now() + 10*24*60*60*1000).toISOString().slice(0,10),prioritaet:"Normal",anweisungen:"",farbe:""});
   const [saving,setSaving] = useState(false); const [saved,setSaved] = useState(null);
   const [selectedTeeth,setSelectedTeeth] = useState([]);
   const [selectedRegion,setSelectedRegion] = useState(null);
@@ -1621,7 +1621,7 @@ function IntakeModal({patienten,zahnärzte,onSave,onClose,prefill,dark}) {
             </div>
             <div style={{display:"flex",gap:10,justifyContent:"center"}}>
               <Btn variant="primary" onClick={onClose}>Fertig</Btn>
-              <Btn variant="secondary" onClick={()=>{setStep("choose");setSaved(null);setForm({patient:"",zahnarzt:zahnärzte[0]?.name||"",arbeitstyp:ARBEITSTYPEN[0],zahn:"",labor:"Eigenlabor",laborName:"",faelligkeit:addDays(14),prioritaet:"Normal",anweisungen:""});}}>Weiterer Auftrag</Btn>
+              <Btn variant="secondary" onClick={()=>{setStep("choose");setSaved(null);setForm({patient:"",zahnarzt:zahnärzte[0]?.name||"",arbeitstyp:"Zirkonkrone",zahn:"",labor:"Eigenlabor",laborName:"",faelligkeit:addDays(14),prioritaet:"Normal",anweisungen:""});}}>Weiterer Auftrag</Btn>
             </div>
           </div>
         )}
