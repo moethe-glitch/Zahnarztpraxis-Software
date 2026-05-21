@@ -3348,6 +3348,7 @@ function PraxisApp() {
   const [showSearch,    setShowSearch]    = useState(false);
   const [showKalender,  setShowKalender]  = useState(false);
   const [showStatistik, setShowStatistik] = useState(false);
+  const [showArbeitstypStat, setShowArbeitstypStat] = useState(false);
   const [showMonat,     setShowMonat]     = useState(false);
   const [showDashboard, setShowDashboard] = useState(false);
   const [showPin,       setShowPin]       = useState(false);
